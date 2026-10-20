@@ -1,8 +1,13 @@
 #include "MAX30105.h"
 #include "heartRate.h"
+#include "secrets.h"
+#include <WiFi.h>
+#include <PubSubClient.h>
 
 
 MAX30105 sensor;
+WiFiClient wifiClient;
+PubSubClient MQTT(wifiClient);
 
 unsigned long lastBeatTime = 0;
 float bpm = 0;
@@ -10,8 +15,14 @@ float normalizedBpm = 0;
 long fingerNotDetectedTime = 0;
 bool hasPreviousBeat = false;
 
+const char* MQTT_ID = "MQTT_ID";
+const char* MQTT_BROKER = "192.168.2.154"; 
+const int MQTT_BROKER_PORT = 1883;
+const char* MQTT_TOPIC =  "sensor";
+
 void setup() {
   Serial.begin(115200);
+  delay(500);
   Wire.begin(8, 9);
   if(!sensor.begin(Wire, I2C_SPEED_FAST)){
     //TODO: send a mqtt message about this state
@@ -22,7 +33,24 @@ void setup() {
   sensor.setup();
   sensor.setPulseAmplitudeRed(0x24);
   sensor.setPulseAmplitudeGreen(0);
-  //TODO: send a mqtt message about this state
+  
+  WiFi.begin(SSID, PASS);
+  while (WiFi.status() != WL_CONNECTED){
+    Serial.println("Trying to connecting to WiFi");
+    delay(500);
+  }
+  Serial.print("Connected to: ");
+  Serial.println(WiFi.localIP());
+
+   MQTT.setServer(MQTT_BROKER, MQTT_BROKER_PORT); 
+
+  while (!MQTT.connected()){
+    if(MQTT.connect(MQTT_ID)){
+      MQTT.subscribe(MQTT_TOPIC);
+      Serial.print("Connected to MQTT broker: ");
+      Serial.println(MQTT_BROKER);
+    }
+  }
 }
 
 void loop() {
