@@ -6,7 +6,8 @@ services:
     ports:
       - "1883:1883"
       - "9001:9001"
-    command: mosquitto -c /mosquitto-no-auth.conf
+    command: >
+      sh -c "printf 'listener 1883\nallow_anonymous true\nlistener 9001\nprotocol websockets\nallow_anonymous true\n' > /tmp/mosquitto.conf && mosquitto -c /tmp/mosquitto.conf"
 
   mqttx-web:
     image: emqx/mqttx-web:latest

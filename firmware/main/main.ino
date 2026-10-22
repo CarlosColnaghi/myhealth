@@ -3,6 +3,7 @@
 #include "secrets.h"
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <time.h>
 
 
 MAX30105 sensor;
@@ -12,13 +13,15 @@ PubSubClient MQTT(wifiClient);
 unsigned long lastBeatTime = 0;
 float bpm = 0;
 float normalizedBpm = 0;
-long fingerNotDetectedTime = 0;
+unsigned long fingerNotDetectedTime = 0;
+unsigned long pulseNotDetectedTime = 0;
 bool hasPreviousBeat = false;
 
 const char* MQTT_ID = "MQTT_ID";
 const char* MQTT_BROKER = "192.168.2.154"; 
 const int MQTT_BROKER_PORT = 1883;
 const char* MQTT_TOPIC =  "sensor";
+const char* DEVICE_ID = "01a160c0-7517-745b-8241-e7f8d680449f";
 
 void setup() {
   Serial.begin(115200);
@@ -36,10 +39,10 @@ void setup() {
   
   WiFi.begin(SSID, PASS);
   while (WiFi.status() != WL_CONNECTED){
-    Serial.println("Trying to connecting to WiFi");
+    Serial.println("Trying to connecting to network");
     delay(500);
   }
-  Serial.print("Connected to: ");
+  Serial.print("Connected to network: ");
   Serial.println(WiFi.localIP());
 
    MQTT.setServer(MQTT_BROKER, MQTT_BROKER_PORT); 
@@ -51,42 +54,58 @@ void setup() {
       Serial.println(MQTT_BROKER);
     }
   }
+  configTime(0, 0, "pool.ntp.org", "a.st1.ntp.br");
 }
 
 void loop() {
   long value = sensor.getIR();
     //TODO: creting consts for values like 50000, 30.0, 200.0
     if(value > 50000){
-      //TODO: sends a warning when finger is detected, but pulse not detected
       if(checkForBeat(value)){
         if(hasPreviousBeat){
           long delta = millis() - lastBeatTime;
           bpm = 60 / (delta / 1000.0);
           lastBeatTime = millis();
-          if(bpm >= 30.0 && bpm <= 200.0){
+          if(bpm >= 25 && bpm <= 250){
             if(normalizedBpm == 0){
               normalizedBpm = bpm;
             }else{
               normalizedBpm = (normalizedBpm * 0.70) + (bpm * 0.30);
             }
-            //TODO: send a mqtt message about bpm value and time
             Serial.print("bpm = ");
             Serial.println(normalizedBpm);
+            publishMessage("MEASURING", normalizedBpm);
           }
         }else{
           lastBeatTime = millis();
           hasPreviousBeat = true;
+          publishMessage("CALIBRATING", 0);
+        }
+        pulseNotDetectedTime = millis();
+      }else {
+        if(millis() - pulseNotDetectedTime > 5000){
+          pulseNotDetectedTime = millis();
+          hasPreviousBeat = false;
+          normalizedBpm = 0;
+          publishMessage("WEAK_SIGNAL", 0);
         }
       }
     }else{
       lastBeatTime = millis();
+      pulseNotDetectedTime = millis();
       hasPreviousBeat = false;
       normalizedBpm = 0;
-      if(fingerNotDetectedTime == 0 || (millis() - fingerNotDetectedTime > 5000)){
-        //TODO: send a mqtt message about this state
-        Serial.println("Finger not detected! Position you finger!");
+      if(millis() - fingerNotDetectedTime > 5000){
+        publishMessage("IDLE", 0);
+        Serial.println("Finger not detected! Position your finger!");
         fingerNotDetectedTime = millis();
       }
     }
-  
+  MQTT.loop();
+}
+
+void publishMessage(const char* state, const float bpm){
+  char payload[256];
+  snprintf(payload, sizeof(payload), "{\"device_id\":\"%s\",\"state\":\"%s\",\"bpm\":%.1f,\"time\":%lld}", DEVICE_ID, state, bpm, (long long)time(nullptr));
+  MQTT.publish(MQTT_TOPIC, payload);
 }
