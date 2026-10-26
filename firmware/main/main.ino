@@ -72,14 +72,15 @@ void loop() {
             }else{
               normalizedBpm = (normalizedBpm * 0.70) + (bpm * 0.30);
             }
-            Serial.print("bpm = ");
-            Serial.println(normalizedBpm);
             publishMessage("MEASURING", normalizedBpm);
+            Serial.print("BPM = ");
+            Serial.println(normalizedBpm);
           }
         }else{
           lastBeatTime = millis();
           hasPreviousBeat = true;
           publishMessage("CALIBRATING", 0);
+          Serial.println("Calibrating...");
         }
         pulseNotDetectedTime = millis();
       }else {
@@ -88,6 +89,7 @@ void loop() {
           hasPreviousBeat = false;
           normalizedBpm = 0;
           publishMessage("WEAK_SIGNAL", 0);
+          Serial.println("Finger not detected correctly! Position your finger again!");
         }
       }
     }else{
