@@ -17,3 +17,41 @@ services:
       - "8080:80"
     depends_on:
       - mosquitto
+
+  postgres:
+    image: docker.io/library/postgres:17-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-myhealth}
+      POSTGRES_USER: ${POSTGRES_USER:-myhealth}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-myhealth}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-myhealth} -d ${POSTGRES_DB:-myhealth}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  telegraf:
+    image: docker.io/library/telegraf:latest
+    container_name: telegraf
+    user: telegraf
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-myhealth}
+      POSTGRES_USER: ${POSTGRES_USER:-myhealth}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-myhealth}
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro,Z
+    depends_on:
+      mosquitto:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
