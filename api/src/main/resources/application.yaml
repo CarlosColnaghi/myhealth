@@ -1,3 +1,12 @@
+server:
+  port: 8081
 spring:
   application:
     name: api
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:myhealth}
+    username: ${POSTGRES_USER:myhealth}
+    password: ${POSTGRES_PASSWORD:myhealth}
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0
