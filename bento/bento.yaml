@@ -1,0 +1,32 @@
+input:
+  mqtt:
+    urls:
+      - tcp://mosquitto:1883
+    topics:
+      - sensor
+    qos: 1
+    client_id: bento
+    clean_session: false
+
+output:
+  sql_raw:
+    driver: postgres
+    dsn: "postgres://${POSTGRES_USER:myhealth}:${POSTGRES_PASSWORD:myhealth}@postgres:5432/${POSTGRES_DB:myhealth}?sslmode=disable"
+    init_statement: |
+      CREATE TABLE IF NOT EXISTS public.readings (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        time timestamp with time zone NOT NULL,
+        device_id uuid NOT NULL,
+        state text NOT NULL,
+        bpm double precision NOT NULL
+      );
+    query: |
+      INSERT INTO public.readings (id, time, device_id, state, bpm)
+      VALUES (gen_random_uuid(), to_timestamp($1::double precision), $2::uuid, $3, $4);
+    args_mapping: |
+      root = [
+        this.time,
+        this.device_id,
+        this.state,
+        this.bpm
+      ]

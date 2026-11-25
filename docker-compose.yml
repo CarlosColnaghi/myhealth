@@ -36,17 +36,17 @@ services:
       timeout: 5s
       retries: 10
 
-  telegraf:
-    image: docker.io/library/telegraf:latest
-    container_name: telegraf
-    user: telegraf
+  bento:
+    image: ghcr.io/warpstreamlabs/bento:latest
+    container_name: bento
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-myhealth}
       POSTGRES_USER: ${POSTGRES_USER:-myhealth}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-myhealth}
     volumes:
-      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro,Z
+      - ./bento/bento.yaml:/bento.yaml:ro,Z
+    command: ["-c", "/bento.yaml"]
     depends_on:
       mosquitto:
         condition: service_started
